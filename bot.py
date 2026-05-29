@@ -25,9 +25,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # =========================
-# 🔑 ТОКЕНЫ И КОНФИГУРАЦИЯ (УМНАЯ)
+# 🔑 ТОКЕНЫ И КОНФИГУРАЦИЯ
 # =========================
-# Получаем токен из переменных или ставим заглушку
+# Если настроил в Railway Variables - оставь так. Если нет - впиши токены прямо в кавычки.
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "ТВОЙ_ТОКЕН_ЗДЕСЬ")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "ТВОЙ_КЛЮЧ_ЗДЕСЬ")
 
@@ -36,7 +36,7 @@ admin_id_env = os.getenv("ADMIN_ID")
 if admin_id_env and admin_id_env.isdigit():
     ADMIN_ID = int(admin_id_env)
 else:
-    ADMIN_ID = 0  # Если в Railway пусто, ставим 0, чтобы не было ошибки
+    ADMIN_ID = 0  # Если в Railway пусто, ставим 0
 
 CHANNEL_ID = "@dimadeficit"
 CHANNEL_URL = "https://t.me/dimadeficit"
@@ -67,10 +67,8 @@ class Database:
             return sqlite3.connect("bot.db")
 
     def execute(self, query, params=(), fetch=False, fetchone=False):
-        """Универсальный метод выполнения запросов для Postgres и SQLite"""
         conn = self.get_connection()
         if not self.is_postgres:
-            # Превращаем плейсхолдеры %s от Postgres в ? для SQLite
             query = query.replace("%s", "?")
         
         cursor = conn.cursor()
@@ -93,7 +91,6 @@ class Database:
             conn.close()
 
     def init_db(self):
-        # Таблица пользователей
         self.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id BIGINT PRIMARY KEY,
@@ -107,7 +104,6 @@ class Database:
                 is_interested BOOLEAN DEFAULT FALSE
             )
         """)
-        # Таблица взвешиваний
         self.execute("""
             CREATE TABLE IF NOT EXISTS weights (
                 user_id BIGINT,
@@ -115,7 +111,6 @@ class Database:
                 log_date TEXT
             )
         """)
-        # Таблица калорий
         self.execute("""
             CREATE TABLE IF NOT EXISTS calories (
                 user_id BIGINT,
@@ -208,7 +203,6 @@ class Database:
         return [r[0] for r in rows]
 
     def get_interested_users(self):
-        # В Postgres логические значения TRUE/FALSE, в SQLite это 1/0
         rows = self.execute("SELECT user_id FROM users WHERE is_interested = %s OR is_interested = 1", (True,), fetch=True)
         return [r[0] for r in rows]
 
@@ -440,7 +434,6 @@ async def reg_goal(call: types.CallbackQuery, state: FSMContext):
     height = data.get("height")
     weight = data.get("weight")
     
-    # Сохраняем все данные в базу!
     db.save_user_profile(uid, gender, age, height, weight, goal)
     db.add_weight(uid, weight, date.today().strftime("%Y-%m-%d"))
     
@@ -618,10 +611,15 @@ async def process_menu_clicks(call: types.CallbackQuery, state: FSMContext):
                 return
                 
             status_chat = "💳 Безлимит PRO" if is_pro else f"🆓 Осталось запросов: {left_requests}"
+            
+            kb = InlineKeyboardMarkup().add(
+                InlineKeyboardButton("🏠 В главное меню", callback_data="back_to_menu")
+            )
             await call.message.edit_text(
                 f"💬 ЧАТ С AI-ТРЕНЕРОМ\n"
                 f"Статус: {status_chat}\n\n"
-                f"Задай любой вопрос о продуктах или тренировках."
+                f"Задай любой вопрос о продуктах, рецептах или тренировках прямо в чат 👇",
+                reply_markup=kb
             )
             await MenuStates.ai_chat.set()
 
@@ -637,6 +635,11 @@ async def process_menu_clicks(call: types.CallbackQuery, state: FSMContext):
 
         elif code == "back_to_menu":
             await call.message.edit_text("🏠 Меню:", reply_markup=main_menu_kb())
+
+        # ОБРАБОТЧИК КНОПКИ "ЗАКОНЧИТЬ ДИАЛОГ"
+        elif code == "ai_end_dialogue":
+            await state.finish()
+            await call.message.answer("🛑 Диалог завершен. Чем еще могу помочь?", reply_markup=main_menu_kb())
 
     except MessageNotModified:
         pass
@@ -672,7 +675,7 @@ async def process_calorie_addition(message: types.Message, state: FSMContext):
         await message.answer("⚠️ Введи число цифрами:")
 
 # =========================
-# 💪🏻 ВВОД И АНАЛИЗ ВЕСА (ДИНАМИКА С БД!)
+# 💪🏻 ВВОД И АНАЛИЗ ВЕСА
 # =========================
 @dp.message_handler(state=MenuStates.updating_weight)
 async def process_weight_input(message: types.Message, state: FSMContext):
@@ -756,7 +759,12 @@ async def process_ai_chat_message(message: types.Message, state: FSMContext):
         db.update_user_pro(uid, False, new_left)
         reply += f"\n\n*⚠️ Осталось бесплатных запросов: {new_left}*"
 
-    await message.answer(reply)
+    # Кнопка для быстрого завершения диалога прямо под ответом AI
+    kb = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("🛑 Закончить диалог", callback_data="ai_end_dialogue")
+    )
+
+    await message.answer(reply, reply_markup=kb)
 
 async def request_groq_ai(uid, user_text, u):
     uid_str = str(uid)
@@ -785,7 +793,7 @@ async def request_groq_ai(uid, user_text, u):
                     ai_reply = data["choices"][0]["message"]["content"]
                     user_memory[uid_str].append({"role": "assistant", "content": ai_reply})
                     return ai_reply
-                return "😔 Ошибка связи с сервером."
+                return "😔 Ошибка связи с сервером ИИ."
     except Exception:
         return "😔 Не удалось получить ответ."
 
@@ -794,4 +802,3 @@ async def request_groq_ai(uid, user_text, u):
 # =========================
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
- 
