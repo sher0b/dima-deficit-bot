@@ -789,3 +789,4 @@ async def request_groq_ai(uid, user_text, u):
 # =========================
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
+ 
