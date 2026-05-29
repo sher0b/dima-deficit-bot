@@ -25,11 +25,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # =========================
-# 🔑 ТОКЕНЫ И КОНФИГУРАЦИЯ (БЕЗОПАСНАЯ)
+# 🔑 ТОКЕНЫ И КОНФИГУРАЦИЯ (УМНАЯ)
 # =========================
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "СЮДА_МОЖНО_ВСТАВИТЬ_ТОКЕН_ДЛЯ_ТЕСТОВ_НА_ПК")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "СЮДА_КЛЮЧ_ДЛЯ_ПК")
-ADMIN_ID = int(os.getenv("ADMIN_ID", 000000000))  # <--- Замени 000000000 на свой ID
+# Получаем токен из переменных или ставим заглушку
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "ТВОЙ_ТОКЕН_ЗДЕСЬ")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "ТВОЙ_КЛЮЧ_ЗДЕСЬ")
+
+# Безопасное получение ADMIN_ID
+admin_id_env = os.getenv("ADMIN_ID")
+if admin_id_env and admin_id_env.isdigit():
+    ADMIN_ID = int(admin_id_env)
+else:
+    ADMIN_ID = 0  # Если в Railway пусто, ставим 0, чтобы не было ошибки
 
 CHANNEL_ID = "@dimadeficit"
 CHANNEL_URL = "https://t.me/dimadeficit"
