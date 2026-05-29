@@ -25,13 +25,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # =========================
-# 🔑 ТОКЕНЫ И КОНФИГУРАЦИЯ
+# 🔑 ТОКЕНЫ И КОНФИГУРАЦИЯ (БЕЗОПАСНАЯ)
 # =========================
-import os
-
-TOKEN = os.getenv("TOKEN")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "СЮДА_МОЖНО_ВСТАВИТЬ_ТОКЕН_ДЛЯ_ТЕСТОВ_НА_ПК")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "СЮДА_КЛЮЧ_ДЛЯ_ПК")
+ADMIN_ID = int(os.getenv("ADMIN_ID", 000000000))  # <--- Замени 000000000 на свой ID
 
 CHANNEL_ID = "@dimadeficit"
 CHANNEL_URL = "https://t.me/dimadeficit"
